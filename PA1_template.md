@@ -2,10 +2,8 @@
 
 
 ## Loading and preprocessing the data
-# Reference the source!!
+# Asuming the RAW file exists on the local 
 rawURL = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
-
--- Data downloaded as of 8/7/2014
 
 # If the file does not exist on the current directory, download it 
 if (!file.exists("activity.zip")) {
