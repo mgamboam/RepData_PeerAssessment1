@@ -1,37 +1,104 @@
-# Reproducible Research: Peer Assessment 1
-
+Reproducible Research: Peer Assessment 1
+========================================
 
 ## Loading and preprocessing the data
-# Reference the source!!
+Data is loaded directly from the source specified on the assignment, this assures the raw information is used as part of the analysis. Nevertheless, once downloaded and for performance reasons, a check is performed and if the data exists locally, it is used from the local store.
+
+```{r datadownload, results='hide'}
 rawURL = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
 
--- Data downloaded as of 8/7/2014
-
-# If the file does not exist on the current directory, download it 
 if (!file.exists("activity.zip")) {
-      download.file(url = rawURL,
-            destfile = "activity.zip", method = "curl")
+      download.file(url = rawURL, destfile = "activity.zip", method = "curl")
 }
 
-# Check/create data folder
+### Check for existing datafile, unzip if needed
 if(!file.exists("data")) { dir.create("data") }
 
-#Check if the data has been unzipped, if it hasn't, then unzip it
 if (!file.exists("data/activity.csv")){
       unzip(zipfile = "activity.zip", exdir = "data", overwrite = TRUE)
 }
+```
 
+After the initial raw data is on a local file, load the data and cleanup some of the information to assign the correct data types. The time interval 
+
+```{r dataload, echo=TRUE, results='hide'}
+activityDS        <- read.csv("data/activity.csv")
+activityDS$date   <- as.Date(activityDS$date)
+activityDS$dateTime   <- as.POSIXct(paste(activityDS$date, "GMT"), tz="GMT")
+activityDS$dateTime <- activityDS$dateTime + as.difftime(activityDS$interval, units="mins")
+
+```
 
 ## What is mean total number of steps taken per day?
+The number of steps taken per day is calculaed with an aggregate function
 
+```{r dailySteps, results='hide'}
+library(stats)
+dailySteps <- aggregate( steps~date, activityDS, FUN=sum, na.rm=TRUE )
+```
 
+A historam plot of the information shows steps taken per day
+```{r histogramPlot, echo=TRUE, fig.height=4}
+library(scales)
+library(ggplot2)
+
+qplot(date, steps, data=dailySteps, geom="blank") + 
+      geom_bar(stat = "identity") +
+      xlab("Date of sample")+
+      ylab("Mean number of steps taken")+
+      scale_x_date(labels = date_format("%m/%d"), 
+            breaks = date_breaks("week"))
+```
+
+The mean and median of steps taken per day is calculated using *data.table* functions for simplicity. It is interesting to see how the median for each of the dates is zero, this is caused by the large number of observations with zero value on the dataset.
+
+```{r meanmedian, echo=TRUE, results='markkup'}
+library(data.table)
+
+dt <- data.table(activityDS)
+dt[!is.na(steps),
+   list(count=length(steps), 
+      sum=sum(steps),
+      mean=mean(steps),
+      median=median(steps)),
+   by=date]
+```
 
 ## What is the average daily activity pattern?
+Calculate the average number of steps taken per interval on the data series. This information to properly plot the information.
 
+```{r dailyActivity, echo=TRUE}
+intervalSteps <- aggregate( steps~interval, activityDS, FUN=mean, na.rm=TRUE )
+```
+
+Create the plot with the information to identify which part of the day registers the maximum number of steps.
+
+```{r dailyActivityPlot, echo=TRUE, fig.height=4, fig.width=10}      
+qplot(interval, steps, data=intervalSteps, geom="blank") +
+      geom_bar(stat = "identity") +
+      xlab("Time of sample")+
+      ylab("Mean number of steps per Interval")+
+      scale_x_continuous(breaks = seq(from=0, to=2355, by=120))
+```
+
+The interval with the highest average number of steps can be easily calculated form the *intervalSteps* dataframe calculated earlier.
+```{r maxStepsInterval, echo=TRUE}
+maxStepsInterval <- intervalSteps[which.max(intervalSteps$steps), ]
+timeInterval <- strftime(
+      as.POSIXct("2000-01-01 0:0:0") +as.difftime(maxStepsInterval[1,1],units="mins"),
+      format="%I:%M:%S %p")
+```
+The time interval which corrsponds to the maximum average steps is `r maxStepsInterval[1,1]`, expresed on time format that corresponds to **`r timeInterval`**.
 
 
 ## Imputing missing values
+* Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs):
+```{r calculateNA}
+countNA <- sum(is.na(activityDS))
+```
+there are **`r countNA`** missing values on the dataset.  
 
+* Repair the dataset by filling in the NA values with 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
