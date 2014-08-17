@@ -1,5 +1,6 @@
 Reproducible Research: Peer Assessment 1
 ========================================
+by Mario Gamboa
 
 ## Loading and preprocessing the data
 Data is loaded directly from the source specified on the assignment, this assures the raw information is used as part of the analysis. Nevertheless, once downloaded and for performance reasons, a check is performed and if the data exists locally, it is used from the local store.
@@ -98,7 +99,64 @@ countNA <- sum(is.na(activityDS))
 ```
 there are **`r countNA`** missing values on the dataset.  
 
-* Repair the dataset by filling in the NA values with 
+* Repair the dataset by filling in the NA values with the average information for the corresponding 5 minute interval on the whole dataset. That is used to avoid skewing of informtation by having NA values. Then a new dataset is created with the updated information.
+
+```{r populateNA}
+newADS <- merge(activityDS, intervalSteps, by="interval")
+newADS$steps.x[is.na(newADS$steps.x)] <- newADS[is.na(newADS$steps.x),5]
+newADS <- newADS[c(2,3,1,4)]
+names(newADS) <- c("steps","date","interval","dateTime")
+```
+
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+The results show a very similar histogram, but the median per day has changed.
+
+```{r histogramPlot2, echo=TRUE, fig.height=4}
+dailySteps <- aggregate( steps~date, newADS, FUN=sum, na.rm=TRUE )
+
+qplot(date, steps, data=newADS, geom="blank") + 
+      geom_bar(stat = "identity") +
+      xlab("Date of sample")+
+      ylab("Mean number of steps taken")+
+      scale_x_date(labels = date_format("%m/%d"), 
+            breaks = date_breaks("week"))
+```
+
+Some days now present medians other than zero as it was on the original dataset.
+```{r meanmedian2, echo=TRUE, results='markkup'}
+dt <- data.table(newADS[order(newADS$date),])
+dt[!is.na(steps),
+   list(count=length(steps), 
+      sum=sum(steps),
+      mean=mean(steps),
+      median=median(steps)),
+   by=date]
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+*Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.* The new dataset now properly marks which observations correspond to weekday vs weekend.
+
+```{r weekendActivity, echo=TRUE}
+newADS$dayType <- "weekday"
+newADS$dayType[weekdays(newADS$date)=="Sunday"] <- "weekend"
+newADS$dayType[weekdays(newADS$date)=="Saturday"] <- "weekend"
+newADS$dayType <- as.factor(newADS$dayType)
+```
+
+
+The panel plot showing the information presents differences between weekday and weekend observations. The activity over the weekend is less pronounced at a certain time during the day (lunch time?) but it is more spread throught the day.
+```{r panelPlot2, echo=TRUE, fig.height=6, fig.width=8}
+intervalSteps2 <- aggregate( steps~interval+dayType, newADS, FUN=mean, na.rm=TRUE )
+
+ggplot(data = intervalSteps2, aes(y=steps, x=interval, group = dayType, color=dayType)) + 
+      geom_line() +
+      ggtitle("Activity Differences") +  
+      facet_grid(dayType ~ .) +       
+      labs(x="Interval", 
+           y="Number of steps")          
+
+```
+
+Further analysis is necessary to determine specific causes for this differences.
